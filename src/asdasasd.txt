@@ -1,0 +1,618 @@
+import java.util.*;
+
+public class MainMST {
+    /*
+     * Viktor Kovalev
+     * Task D.
+     */
+    public static void main(String[] args) throws Exception {
+        Graph<Pair, Edge<Pair, Double>> branches = new Graph<>(2910);
+        HashMap<String, Vertex<Pair>> names = new HashMap<>();
+        Scanner in = new Scanner(System.in);
+        int n = in.nextInt();
+        ArrayList<Vertex<Pair>> arrayVertex = new ArrayList<>(n);
+        boolean[] inQueue = new boolean[n];
+        String[] D = new String[n];
+        for (int i = 0; i < n; i++) {
+            String command = in.next();
+            if (command.equals("ADD")) {
+                String name = in.next();
+                double penalty = in.nextDouble();
+                Pair v = new Pair(name, penalty);
+                Vertex<Pair> vert = branches.insertVertex(v);
+                names.put(name, vert);
+                arrayVertex.add(vert);
+
+            } else if (command.equals("CONNECT")) {
+                String name1 = in.next(), name2 = in.next();
+                double dist = in.nextDouble();
+                Vertex<Pair> v = names.get(name1);
+                Vertex<Pair> u = names.get(name2);
+                dist = dist / (v.getValue().getPenalty() + u.getValue().getPenalty());
+                branches.insertEdge(v, u, new Edge<>(dist, v, u));
+            } else if (command.equals("PRINT_MIN")) {
+                if (arrayVertex.size() == 0) {
+                    System.out.println();
+                    continue;
+                }
+                primsAlgorithm(branches, arrayVertex, D, inQueue);
+            }
+        }
+    }
+
+    public static void primsAlgorithm(Graph<Pair, Edge<Pair, Double>> G, ArrayList<Vertex<Pair>> vertices, String[] D, boolean[] inQueue) throws Exception {
+        FibHeap<Double, Vertex<Pair>> Q = new FibHeap<>(Double.MIN_VALUE);
+        inQueue[vertices.get(0).getId()] = true;
+        ArrayList<Node<Double, Vertex<Pair>>> nodes = new ArrayList<>();
+        nodes.add(new Node<>(0., vertices.get(0)));
+        Q.insert(nodes.get(0));
+        Q.insert(nodes.get(0));
+        for (int i = 1; i < G.getSize(); i++) {
+            inQueue[i] = true;
+            D[i] = "";
+            if (G.degree(vertices.get(i)) == 0) {
+                inQueue[vertices.get(i).getId()] = false;
+                continue;
+            }
+            nodes.add(new Node<>(Double.MAX_VALUE, vertices.get(i)));
+            Q.insert(nodes.get(i));
+        }
+        StringBuilder ans = new StringBuilder();
+        while (!Q.isEmpty()) {
+            Node<Double, Vertex<Pair>> u = (Node<Double, Vertex<Pair>>) Q.extractMin();
+            inQueue[u.value.getId()] = false;
+            int j = 0;
+            for (int i = 0; i < vertices.size() && j < G.degree(u.value); i++) {
+                if (G.areAdjacent(u.value, vertices.get(i))) {
+                    j++;
+                    if (inQueue[vertices.get(i).getId()] && G.getEdge(u.value, vertices.get(i)).getDistance() < nodes.get(vertices.get(i).getId()).key) {
+                        D[vertices.get(i).getId()] = u.value.getValue().name;
+                        Q.decreaseKey(nodes.get(vertices.get(i).getId()), G.getEdge(u.value, vertices.get(i)).getDistance());
+                    }
+                }
+            }
+            if (!D[u.value.getId()].equals("")) {
+                ans.append(D[u.value.getId()]).append(":").append(u.value.getValue().name).append(" ");
+            }
+        }
+        System.out.println(ans);
+    }
+}
+
+class Vertex<V> {
+    private final int id;
+    private final V value;
+
+    public Vertex(int id, V value) {
+        this.id = id;
+        this.value = value;
+    }
+
+    public int getId() {
+        return id;
+    }
+
+    public V getValue() {
+        return value;
+    }
+}
+
+class Edge<V, E> {
+    E distance;
+    Vertex<V> from, to;
+
+    public Edge(E distance, Vertex<V> from, Vertex<V> to) {
+        this.distance = distance;
+        this.from = from;
+        this.to = to;
+    }
+
+    public E getDistance() {
+        return distance;
+    }
+}
+
+class Pair {
+    String name;
+    double penalty;
+
+    public Pair(String first, double second) {
+        this.name = first;
+        this.penalty = second;
+    }
+
+    public double getPenalty() {
+        return penalty;
+    }
+}
+
+interface IGraph<V, E> {
+    Vertex<V> insertVertex(V v);
+
+    E insertEdge(Vertex<V> from, Vertex<V> to, E w);
+
+    void removeVertex(Vertex<V> v);
+
+    void removeEdge(Edge<V, E> e);
+
+    int degree(Vertex<V> v);
+
+    boolean areAdjacent(Vertex<V> v, Vertex<V> u);
+}
+
+class Graph<V, E> implements IGraph<V, E> {
+    private int[] degree;
+    private int size;
+    private final int capacity;
+    private int numberEdges;
+    E[][] adjacencyMatrix;
+
+    public Graph(int capacity) {
+        this.degree = new int[capacity];
+        this.numberEdges = 0;
+        this.size = 0;
+        this.capacity = capacity;
+        this.adjacencyMatrix = (E[][]) new Object[capacity][capacity];
+    }
+
+    /**
+     * Method that creates a reference to Vertex element with 'o' value
+     * <br/>Time complexity - O(1)
+     *
+     * @param o Value for vertex.
+     * @return Created vertex.
+     */
+    @Override
+    public Vertex<V> insertVertex(V o) {
+        return new Vertex<>(size++, o);
+    }
+
+    @Override
+    public E insertEdge(Vertex<V> from, Vertex<V> to, E w) {
+        adjacencyMatrix[from.getId()][to.getId()] = w;
+        adjacencyMatrix[to.getId()][from.getId()] = w;
+        numberEdges++;
+        degree[from.getId()]++;
+        degree[to.getId()]++;
+        return w;
+    }
+
+    @Override
+    public void removeVertex(Vertex<V> v) {
+        for (int i = 0; i < capacity; i++) {
+            adjacencyMatrix[i][v.getId()] = null;
+            adjacencyMatrix[v.getId()][i] = null;
+        }
+        degree[v.getId()] = 0;
+    }
+
+    @Override
+    public void removeEdge(Edge<V, E> e) {
+        adjacencyMatrix[e.from.getId()][e.to.getId()] = null;
+        adjacencyMatrix[e.to.getId()][e.from.getId()] = null;
+        degree[e.from.getId()]--;
+        degree[e.to.getId()]--;
+    }
+
+    /**
+     * Method that returns the degree of vertex 'v'.
+     * <br/>Time complexity: O(size)
+     *
+     * @param v Considered vertex
+     * @return Degree of vertex 'v'
+     */
+    @Override
+    public int degree(Vertex<V> v) {
+        return degree[v.getId()];
+    }
+
+    @Override
+    public boolean areAdjacent(Vertex<V> v, Vertex<V> u) {
+        return adjacencyMatrix[v.getId()][u.getId()] != null;
+    }
+
+    public int getSize() {
+        return size;
+    }
+
+    public int getNumberEdges() {
+        return numberEdges;
+    }
+
+    public E getEdge(Vertex<V> u, Vertex<V> v) {
+        return adjacencyMatrix[u.getId()][v.getId()];
+    }
+}
+
+/**
+ * Node of Priority Queue.
+ *
+ * @param <K> Key with supporting campareTo() method.
+ * @param <V> Value
+ */
+class Node<K extends Comparable<? super K>, V> {
+    // Links to parent, right node and left node.
+    public Node<K, V> parent = null;
+    public Node<K, V> left;
+    public Node<K, V> right;
+    // DoubleLinkedList for children of current node.
+    public CircularQueue<K, V> children;
+    public int degree = 0;
+    public boolean mark = false;
+    public K key;
+    public V value;
+
+    public Node(K key, V value) {
+        left = this;
+        right = this;
+        children = new CircularQueue<>();
+        this.key = key;
+        this.value = value;
+    }
+
+    public Node(Node<K, V> node) {
+        this.parent = node.parent;
+        this.left = node.left;
+        this.right = node.right;
+        this.children = new CircularQueue<>();
+        this.degree = node.degree;
+        this.mark = node.mark;
+        this.key = node.key;
+        this.value = node.value;
+    }
+
+    public String toString() {
+        return this.value.toString();
+    }
+}
+
+/**
+ * Double Linked List for root list of fibonacci heap and children of nodes.
+ *
+ * @param <K> Comparable key.
+ * @param <V> Value.
+ */
+class CircularQueue<K extends Comparable<? super K>, V> {
+    // Link to the first element of list.
+    Node<K, V> element = null;
+    private int size = 0;
+
+    /**
+     * Size.
+     * <br/>Time complexity - O(1)
+     *
+     * @return Size of list.
+     */
+    public int getSize() {
+        return size;
+    }
+
+    /**
+     * Put new node to the list.
+     * <br/>Time complexity - O(1)
+     *
+     * @param node Node for adding.
+     */
+    public void offer(Node<K, V> node) {
+        if (size == 0) {
+            // Put to the first.
+            element = node;
+            element.left = element;
+            element.right = element;
+        } else if (size == 1) {
+            // Put after first and connect to each other.
+            element.left = node;
+            element.right = node;
+            node.left = element;
+            node.right = element;
+        } else {
+            // Put to the left after first element.
+            element.left.right = node;
+            node.left = element.left;
+            node.right = element;
+            element.left = node;
+        }
+        size++;
+    }
+
+    /**
+     * Delete element by link to this element.
+     * <br/>Time complexity - O(1)
+     *
+     * @param node Node for deleting.
+     */
+    public void poll(Node<K, V> node) {
+        if (getSize() == 1) {
+            // Remove the one element.
+            element = null;
+        } else if (node == element) {
+            // Remove first element and connect 'element' to the next element.
+            element.left.right = element.right;
+            element.right.left = element.left;
+            element = element.right;
+        } else {
+            // Just delete it.
+            node.left.right = node.right;
+            node.right.left = node.left;
+        }
+        size--;
+    }
+}
+
+/**
+ * Interface for Priority Queue.
+ *
+ * @param <K> Key
+ * @param <V> Value
+ */
+interface IPriorityQueue<K, V> {
+    void insert(Object item);
+
+    Object findMin();
+
+    Object extractMin();
+
+    void decreaseKey(Object item, K newKey) throws Exception;
+
+    void delete(Object item) throws Exception;
+
+    void union(Object anotherQueue);
+}
+
+/**
+ * Implementation of Priority Queue by using Fibonacci Heap.
+ *
+ * @param <K> Key with supporting compareTo() method.
+ * @param <V> Value
+ */
+class FibHeap<K extends Comparable<? super K>, V> implements IPriorityQueue<K, V> {
+    // Link to the minimum node.
+    private Node<K, V> min;
+    // Size of heap.
+    private int n;
+    // Root list of heap.
+    private CircularQueue<K, V> rootList;
+    // Minimum value of key for .delete() method.
+    private final K minValue;
+
+    /**
+     * Creating the new heap.
+     * <br/>Time complexity - O(1)
+     *
+     * @param minValue Minimum value of key for .delete() method.
+     */
+    public FibHeap(K minValue) {
+        min = null;
+        this.minValue = minValue;
+        rootList = new CircularQueue<>();
+        n = 0;
+    }
+
+    public boolean isEmpty() {
+        return n == 0;
+    }
+
+    /**
+     * Insert new node to the heap.
+     * <br/>Time complexity - O(1).
+     *
+     * @param item
+     */
+    @Override
+    public void insert(Object item) {
+        Node<K, V> node = (Node<K, V>) item;
+        if (min == null) {
+            // Check for any minimum. Add first element.
+            min = node;
+        } else {
+            // Just add and compare with current minimum.
+            if (node.key.compareTo(min.key) < 0) {
+                min = node;
+            }
+        }
+        // Add new node to root list.
+        rootList.offer(node);
+        n++;
+    }
+
+    /**
+     * Return minimum node of heap.
+     * <br/>Time complexity - O(1).
+     *
+     * @return Node with minimum value.
+     */
+    @Override
+    public Object findMin() {
+        return min;
+    }
+
+    /**
+     * Take minimum node from heap and delete it from heap.
+     * <br/>Time complexity - O(log(n)).
+     *
+     * @return Node with minimum value.
+     */
+    @Override
+    public Object extractMin() {
+        // Check for nothing in heap.
+        if (min == null) {
+            return null;
+        }
+        // Node which will be extracted.
+        Node<K, V> extracted = new Node<>(min);
+        // Add all elements from root list to the array for clear walk.
+        ArrayList<Node<K, V>> tempChildren = new ArrayList<>();
+        Node<K, V> pointer = min.children.element;
+        for (int i = 0; i < min.degree; i++) {
+            tempChildren.add(pointer);
+            pointer = pointer.right;
+        }
+        // Transfer all children of extracted node to the root list.
+        for (int i = 0; i < min.degree; i++) {
+            rootList.offer(tempChildren.get(i));
+            tempChildren.get(i).parent = null;
+        }
+        // Delete extracted from root list.
+        rootList.poll(min);
+        if (min == min.right) {
+            min = null;
+        } else {
+            min = min.right;
+            // Consolidate root list.
+            consolidate();
+        }
+        n--;
+        return extracted;
+    }
+
+    /**
+     * Sum subtrees if it needed.
+     * <br/>Time complexity - O(log(n))
+     */
+    private void consolidate() {
+        // Compute the maximum degree of every node.
+        int D = (int) (Math.log(n) / 0.47 + 2);
+        // Array for nodes which ordered by degree.
+        ArrayList<Node<K, V>> degreeArray = new ArrayList<>(D);
+        for (int i = 0; i < D; i++) {
+            degreeArray.add(null);
+        }
+        Node<K, V> pointer = min;
+        // Add all elements from root list to the array for clear walk.
+        LinkedList<Node<K, V>> rootListTemp = new LinkedList<>();
+        for (int i = 0; i < rootList.getSize(); i++) {
+            rootListTemp.add(pointer);
+            pointer = pointer.right;
+        }
+        // Go through all nodes from root list.
+        for (Node<K, V> X : rootListTemp) {
+            Node<K, V> x = X;
+            int d = x.degree;
+            // Sum nodes with the same degree.
+            while (degreeArray.get(d) != null) {
+                Node<K, V> y = degreeArray.get(d);
+                if (x == y) {
+                    break;
+                }
+                // Swap nodes if second one less than first.
+                if (x.key.compareTo(y.key) > 0) {
+                    Node<K, V> temp = x;
+                    x = y;
+                    y = temp;
+                }
+                // Remove second node from root list and add it to the children of first.
+                rootList.poll(y);
+                x.children.offer(y);
+                y.parent = x;
+                y.mark = false;
+                x.degree++;
+                degreeArray.set(d, null);
+                d++;
+            }
+            // Set current node in the degree array.
+            degreeArray.set(d, x);
+        }
+        min = null;
+        // Compute new min and put all nodes from degree array to the root list.
+        for (int i = 0; i < D; i++) {
+            if (degreeArray.get(i) != null) {
+                if (min == null) {
+                    rootList = new CircularQueue<>();
+                    min = degreeArray.get(i);
+                    rootList.offer(min);
+                } else {
+                    rootList.offer(degreeArray.get(i));
+                    if (degreeArray.get(i).key.compareTo(min.key) < 0) {
+                        min = degreeArray.get(i);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Decrease the key for the following node.
+     *
+     * @param item   Node.
+     * @param newKey Key for new node.
+     * @throws Exception for new key which is greater than current key.
+     */
+    @Override
+    public void decreaseKey(Object item, K newKey) throws Exception {
+        Node<K, V> node = (Node<K, V>) item;
+        if (newKey.compareTo(node.key) > 0) {
+            throw new Exception("New key is greater than current key");
+        }
+        node.key = newKey;
+        Node<K, V> parent = node.parent;
+        if (parent != null && node.key.compareTo(parent.key) < 0) {
+            cut(node, parent);
+            cascadingCut(parent);
+        }
+        if (node.key.compareTo(min.key) < 0) {
+            min = node;
+        }
+    }
+
+    /**
+     * @param node1
+     * @param node2
+     */
+    private void cut(Node<K, V> node1, Node<K, V> node2) {
+        node2.children.poll(node1);
+        node2.degree--;
+        rootList.offer(node1);
+        node1.parent = null;
+        node1.mark = false;
+    }
+
+    /**
+     * @param node
+     */
+    private void cascadingCut(Node<K, V> node) {
+        Node<K, V> parent = node.parent;
+        if (parent != null) {
+            if (!node.mark) {
+                node.mark = true;
+            } else {
+                cut(node, parent);
+                cascadingCut(parent);
+            }
+        }
+    }
+
+    /**
+     * Delete node.
+     * <br/>Time complexity - O()
+     *
+     * @param item Node for deleting.
+     * @throws Exception
+     */
+    @Override
+    public void delete(Object item) throws Exception {
+        Node<K, V> node = (Node<K, V>) item;
+        decreaseKey(node, minValue);
+        extractMin();
+    }
+
+    /**
+     * Insert all elements in the heap from another heap.
+     * <br/>Time complexity - O(n)
+     *
+     * @param anotherQueue Another heap.
+     */
+    @Override
+    public void union(Object anotherQueue) {
+        FibHeap<K, V> second = (FibHeap<K, V>) anotherQueue;
+        // Link to the root list element from another heap.
+        Node<K, V> pointer = second.rootList.element;
+        for (int i = 0; i < second.rootList.getSize(); i++) {
+            Node<K, V> temp = pointer;
+            pointer = pointer.right;
+            // Add all elements from root list of another heap to the current root list heap.
+            rootList.offer(temp);
+        }
+        // Consolidate root list.
+        consolidate();
+    }
+}
